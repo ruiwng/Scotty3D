@@ -13,7 +13,6 @@ imgui.ini
 deps/win/assimp/assimp.lib
 deps/win/assimp/assimp_d.lib
 settings.json
-.vscode/*.json
 .sublime/
 .DS_Store
 media/test.*

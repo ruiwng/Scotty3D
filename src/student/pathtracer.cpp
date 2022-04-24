@@ -21,9 +21,12 @@ Spectrum Pathtracer::trace_pixel(size_t x, size_t y) {
     // Tip: log_ray is useful for debugging
 
     Vec2 xy((float)x, (float)y);
+    xy += Samplers::Rect().sample();
     Vec2 wh((float)out_w, (float)out_h);
 
     Ray ray = camera.generate_ray(xy / wh);
+    // if(RNG::coin_flip(0.0005f))
+    //    log_ray(ray, 10.0f);
     ray.depth = max_depth;
 
     // Pathtracer::trace() returns the incoming light split into emissive and reflected components.
