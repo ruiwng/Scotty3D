@@ -90,7 +90,9 @@ Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
     // (2) Otherwise, we should randomly choose whether we get our sample from `BSDF::scatter`
     // or `Pathtracer::sample_area_lights`. Note that `Pathtracer::sample_area_lights` returns
     // a world-space direction pointing toward an area light. Choose between the strategies 
-    // with equal probability.
+    // with equal probability. Pay attention to the inputs and outputs of the area light functions -
+    // they are in world space, while BSDF::scatter() is in local space. Use the attributes of the
+    // Pathtracer::Shading_Info object to make sure spaces are consistent when you create a ray to trace.
 
     // (3) Create a new world-space ray and call Pathtracer::trace() to get incoming light. You
     // should modify time_bounds so that the ray does not intersect at time = 0. We are again

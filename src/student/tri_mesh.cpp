@@ -10,7 +10,7 @@ BBox Triangle::bbox() const {
     // Compute the bounding box of the triangle.
 
     // Beware of flat/zero-volume boxes! You may need to
-    // account for that here, or later on in BBox::intersect.
+    // account for that here, or later on in BBox::hit.
 
     BBox box;
     return box;

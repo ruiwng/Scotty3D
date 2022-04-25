@@ -11,7 +11,7 @@ The simulation view provides a way to create and manage particle emitters.
 
 To add an emitter, open the dropdown menu, adjust desired parameters, and press `Add`.
 
-![add emitter](simulate_mode/add_emitter.png)
+![add emitter](add_emitter.png)
 
 - Color: color with which to render the particles.
 - Angle: angle of cone within which particles are generated (pointing in the emitter object's direction).
@@ -29,4 +29,4 @@ For example, the `particles.dae` test scene:
 
 Finally, note that you can render particles just like any other scene objects. Rendering `particles.dae` with depth of field:
 
-![particles render](simulate_mode/render.png)
+![particles render](render.png)
