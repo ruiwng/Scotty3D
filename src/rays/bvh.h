@@ -9,11 +9,17 @@
 namespace PT {
 
 template<typename Primitive> class BVH {
+    struct BBoxInfo {
+        BBox bbox;
+        Vec3 center;
+        size_t index;
+    };
 public:
     BVH() = default;
     BVH(std::vector<Primitive>&& primitives, size_t max_leaf_size = 1);
     void build(std::vector<Primitive>&& primitives, size_t max_leaf_size = 1);
 
+    size_t build_recursively(size_t start, size_t size, std::vector<BBoxInfo>& bounding_boxes);
     BVH(BVH&& src) = default;
     BVH& operator=(BVH&& src) = default;
 
@@ -41,9 +47,11 @@ private:
     };
     size_t new_node(BBox box = {}, size_t start = 0, size_t size = 0, size_t l = 0, size_t r = 0);
 
+    Trace find_first_hit(const Node& node, const Ray& ray) const;
     std::vector<Node> nodes;
     std::vector<Primitive> primitives;
     size_t root_idx = 0;
+    size_t max_leaf_size = 1;
 };
 
 } // namespace PT

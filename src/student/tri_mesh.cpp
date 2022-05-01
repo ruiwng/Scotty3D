@@ -13,6 +13,16 @@ BBox Triangle::bbox() const {
     // account for that here, or later on in BBox::hit.
 
     BBox box;
+    Tri_Mesh_Vert v_0 = vertex_list[v0];
+    Tri_Mesh_Vert v_1 = vertex_list[v1];
+    Tri_Mesh_Vert v_2 = vertex_list[v2];
+    box.min.x = std::min(v_0.position.x, std::min(v_1.position.x, v_2.position.x)) - 1e-5;
+    box.min.y = std::min(v_0.position.y, std::min(v_1.position.y, v_2.position.y)) - 1e-5;
+    box.min.z = std::min(v_0.position.z, std::min(v_1.position.z, v_2.position.z)) - 1e-5;
+
+    box.max.x = std::max(v_0.position.x, std::max(v_1.position.x, v_2.position.x)) + 1e-5;
+    box.max.y = std::max(v_0.position.y, std::max(v_1.position.y, v_2.position.y)) + 1e-5;
+    box.max.z = std::max(v_0.position.z, std::max(v_1.position.z, v_2.position.z)) + 1e-5;
     return box;
 }
 

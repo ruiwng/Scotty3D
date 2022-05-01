@@ -8,6 +8,22 @@ bool BBox::hit(const Ray& ray, Vec2& times) const {
     // Implement ray - bounding box intersection test
     // If the ray intersected the bounding box within the range given by
     // [times.x,times.y], update times with the new intersection times.
-
-    return false;
+    float tmin, tmax;
+    for(int i = 0; i < 3; ++i) {
+        tmin = (min[i] - ray.point[i]) / ray.dir[i];
+        tmax = (max[i] - ray.point[i]) / ray.dir[i];
+        if(tmin > tmax) {
+            std::swap(tmin, tmax);
+        }
+        if(tmin > times.x) {
+            times.x = tmin;
+        } 
+        if(tmax < times.y) {
+            times.y = tmax;
+        }
+        if(times.x > times.y) {
+            return false;
+        }
+    }
+    return true;
 }

@@ -3,6 +3,7 @@
 #include "debug.h"
 #include <stack>
 
+#define PARTITION_COUNT  12
 namespace PT {
 
 template<typename Primitive>
@@ -38,11 +39,94 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
     // primitives.
 
     // Replace these
-    BBox box;
-    for(const Primitive& prim : primitives) box.enclose(prim.bbox());
 
-    new_node(box, 0, primitives.size(), 0, 0);
-    root_idx = 0;
+    this->max_leaf_size = max_leaf_size;
+    std::vector<BBoxInfo> bounding_boxes;
+    for(size_t i = 0; i < primitives.size(); ++i) {
+        auto bbox = primitives[i].bbox();
+        bounding_boxes.push_back({bbox, bbox.center(), i});
+    }
+    root_idx = build_recursively(0, primitives.size(), bounding_boxes);
+
+    std::vector<Primitive> sorted_primitives;
+    sorted_primitives.reserve(primitives.size());
+    for(size_t i = 0; i < bounding_boxes.size(); ++i) {
+        sorted_primitives.push_back(std::move(primitives[bounding_boxes[i].index]));
+    }
+    std::swap(primitives, sorted_primitives);
+}
+
+template<typename Primitive>
+size_t BVH<Primitive>::build_recursively(size_t start, size_t size, std::vector<BBoxInfo> &bounding_boxes) {
+    BBox box;
+    for(size_t i = start; i < start + size; ++i) {
+        box.enclose(bounding_boxes[i].bbox);
+    }
+    if(size <= max_leaf_size) {
+        return new_node(box, start, size, 0, 0);
+    }
+    float total_cost = std::numeric_limits<float>::max();
+    size_t min_dim;
+    size_t min_left_count;
+    for(size_t dim = 0; dim < 3; ++dim) {
+        std::sort(bounding_boxes.begin() + start, bounding_boxes.begin() + start + size, 
+        [&](const BBoxInfo& lhs, const BBoxInfo& rhs) -> bool {
+            return lhs.center[dim] < rhs.center[dim];
+        });
+        // compute bounding box from left to right
+        std::vector<BBox> left_to_right_bbox;
+        BBox left_bbox;
+        left_to_right_bbox.push_back(left_bbox);
+        for(size_t j = start; j < start + size; ++j) {
+            left_bbox.enclose(bounding_boxes[j].bbox);
+            left_to_right_bbox.push_back(left_bbox);
+        }
+        
+        // compute bounding box from right to left
+        std::vector<BBox> right_to_left_bbox;
+        BBox right_bbox;
+        right_to_left_bbox.push_back(right_bbox);
+        for(size_t j = start + size - 1; ; --j) {
+            right_bbox.enclose(bounding_boxes[j].bbox);
+            right_to_left_bbox.push_back(right_bbox);
+            if(j == start) {
+                break;
+            }
+        }
+
+        float step_size = (box.max[dim] - box.min[dim]) / PARTITION_COUNT;
+        float partition = box.min[dim];
+        size_t left_count = 0;
+        for(int j = 0; j < PARTITION_COUNT - 1; ++j) {
+            partition += step_size;
+            while(left_count < size && bounding_boxes[start + left_count].center[dim] < partition) {
+                left_count += 1;
+            }
+            auto right_count = size - left_count;
+            auto& left_box = left_to_right_bbox[left_count];
+            auto& right_box = right_to_left_bbox[right_count];
+            float cost = .125f + (left_count * left_box.surface_area() + right_count * right_box.surface_area()) / box.surface_area(); 
+            if(cost < total_cost) {
+                total_cost = cost;
+                min_dim = dim;
+                min_left_count = cost;
+            }
+            if(left_count == size) {
+                break;
+            }
+        }
+    }
+    if(min_left_count == 0 || min_left_count == size) {
+        return new_node(box, start, size, 0, 0);
+    }
+    std::sort(bounding_boxes.begin() + start, bounding_boxes.begin() + start + size, 
+    [&](const BBoxInfo& lhs, const BBoxInfo& rhs) -> bool {
+        return lhs.center[min_dim] < rhs.center[min_dim];
+    });
+    int left_child = build_recursively(start, min_left_count, bounding_boxes);
+    int right_child = build_recursively(start + min_left_count, size - min_left_count, bounding_boxes);
+    log("start %d, size %d, left_child %d, right_child %d", start, size, left_child, right_child);
+    return new_node(box, start, size, left_child, right_child);
 }
 
 template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
@@ -55,12 +139,55 @@ template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
     // The starter code simply iterates through all the primitives.
     // Again, remember you can use hit() on any Primitive value.
 
+    /*
     Trace ret;
     for(const Primitive& prim : primitives) {
         Trace hit = prim.hit(ray);
         ret = Trace::min(ret, hit);
     }
     return ret;
+    */
+
+    bool is_hit = nodes[root_idx].bbox.hit(ray, ray.dist_bounds);
+    if(!is_hit) {
+        return Trace();
+    }
+    return find_first_hit(nodes[root_idx], ray);
+}
+
+template<typename Primitive>
+Trace BVH<Primitive>::find_first_hit(const Node& node, const Ray& ray) const {
+    if(node.is_leaf()) {
+        Trace ret;
+        for(auto i = node.start; i < node.start + node.size; ++i) {
+            Trace hit = primitives[i].hit(ray);
+            ret = Trace::min(ret, hit);
+        }
+        return ret;
+    }
+    const Node& left_node = nodes[node.l];
+    Vec2 left_interval = ray.dist_bounds;
+    bool is_left_hit = left_node.bbox.hit(ray, left_interval);
+    const Node& right_node = nodes[node.r];
+    Vec2 right_interval = ray.dist_bounds;
+    bool is_right_hit = right_node.bbox.hit(ray, right_interval);
+    if(is_left_hit && is_right_hit) {
+        const Node& first_node = left_interval[0] < right_interval[0]?left_node: right_node;
+        const Node& second_node = left_interval[0] < right_interval[0]?right_node: left_node;
+        const Vec2& second_interval = left_interval[0] < right_interval[0]?right_interval: left_interval;
+        Trace trace = find_first_hit(first_node, ray);
+        if(!trace.hit || (trace.hit && trace.distance > second_interval[0])) {
+            trace = Trace::min(trace, find_first_hit(second_node, ray));
+        }
+        return trace;
+        
+    } else if(is_left_hit) {
+        return find_first_hit(left_node, ray);
+    } else if(is_right_hit) {
+        return find_first_hit(right_node, ray);
+    } else {
+        return Trace();
+    }
 }
 
 template<typename Primitive>
