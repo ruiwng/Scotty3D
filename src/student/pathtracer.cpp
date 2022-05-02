@@ -54,8 +54,14 @@ Spectrum Pathtracer::sample_indirect_lighting(const Shading_Info& hit) {
     // You should only use the indirect component of incoming light (the second value returned
     // by Pathtracer::trace()), as the direct component will be computed in
     // Pathtracer::sample_direct_lighting().
+    auto scatter = hit.bsdf.scatter(hit.out_dir);
+    auto direction = hit.object_to_world.rotate(scatter.direction);
 
-    Spectrum radiance;
+    Ray ray(hit.pos + hit.normal * 1e-4, direction, Vec2{0.0f, std::numeric_limits<float>::max()}, hit.depth - 1);
+    auto radiance = scatter.attenuation * trace(ray).second;
+    if(!hit.bsdf.is_discrete()) {
+        radiance *= 1.0f / hit.bsdf.pdf(hit.out_dir, scatter.direction);
+    }
     return radiance;
 }
 
@@ -74,7 +80,15 @@ Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
     // Pathtracer::sample_indirect_lighting(), but instead accumulates the emissive component of
     // incoming light (the first value returned by Pathtracer::trace()). Note that since we only
     // want emissive, we can trace a ray with depth = 0.
-
+   
+    Vec3 direction = sample_area_lights(hit.pos);
+    Ray ray(hit.pos + hit.normal * 1e-4, direction, Vec2(0.0f, std::numeric_limits<float>::max()), 0.0f);
+    auto radiance_emissive = hit.bsdf.evaluate(hit.out_dir, hit.world_to_object.rotate(direction)) * trace(ray).first;
+    // auto radiance_emissive = hit.bsdf.evaluate(hit.out_dir, hit.world_to_object.rotate(direction));
+    if(!hit.bsdf.is_discrete()) {
+        radiance_emissive *= 1.0f / area_lights_pdf(hit.pos, direction);
+    }
+    radiance += radiance_emissive;
 #if TASK_4 == 1
     return radiance
 #endif
