@@ -20,8 +20,20 @@ Vec3 Sphere::Uniform::sample() const {
 
     // Generate a uniformly random point on the unit sphere.
     // Tip: start with Hemisphere::Uniform
+    float Xi1 = RNG::unit();
+    float Xi2 = RNG::unit();
 
-    return Vec3{};
+    float theta = std::acos(Xi1);
+    float phi = 2.0f * PI_F * Xi2;
+
+    float xs = std::sin(theta) * std::cos(phi);
+    float ys = std::cos(theta);
+    float zs = std::sin(theta) * std::sin(phi);
+
+    if(RNG::coin_flip(0.5)) {
+        ys = -ys;
+    }
+    return Vec3(xs, ys, zs);
 }
 
 Sphere::Image::Image(const HDR_Image& image) {
