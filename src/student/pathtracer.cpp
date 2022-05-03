@@ -88,7 +88,13 @@ Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
    
     // auto radiance_emissive = hit.bsdf.evaluate(hit.out_dir, hit.world_to_object.rotate(direction));
     if(!hit.bsdf.is_discrete()) {
-        Vec3 direction = sample_area_lights(hit.pos);
+        Vec3 direction;
+        if(RNG::coin_flip(0.5)) {
+            direction = sample_area_lights(hit.pos);
+        } else {
+            auto scatter = hit.bsdf.scatter(hit.out_dir);
+            direction = hit.object_to_world.rotate(scatter.direction);
+        }
         Vec3 pos;
         if(dot(hit.normal, direction) > 0.f) {
             pos = hit.pos + hit.normal * 1e-4;
@@ -96,8 +102,9 @@ Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
             pos = hit.pos - hit.normal * 1e-4;
         }
         Ray ray(pos, direction, Vec2(0.0f, std::numeric_limits<float>::max()), 0.0f);
-        auto radiance_emissive = hit.bsdf.evaluate(hit.out_dir, hit.world_to_object.rotate(direction)) * trace(ray).first;
-        radiance_emissive *= 1.0f / area_lights_pdf(hit.pos, direction);
+        Vec3 in_dir = hit.world_to_object.rotate(direction);
+        auto radiance_emissive = hit.bsdf.evaluate(hit.out_dir, in_dir) * trace(ray).first;
+        radiance_emissive *= 2.0f / (area_lights_pdf(hit.pos, direction) + hit.bsdf.pdf(hit.out_dir, in_dir));
         radiance += radiance_emissive;
     } else {
         auto scatter = hit.bsdf.scatter(hit.out_dir);
