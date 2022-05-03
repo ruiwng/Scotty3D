@@ -56,8 +56,13 @@ Spectrum Pathtracer::sample_indirect_lighting(const Shading_Info& hit) {
     // Pathtracer::sample_direct_lighting().
     auto scatter = hit.bsdf.scatter(hit.out_dir);
     auto direction = hit.object_to_world.rotate(scatter.direction);
-
-    Ray ray(hit.pos + hit.normal * 1e-4, direction, Vec2{0.0f, std::numeric_limits<float>::max()}, hit.depth - 1);
+    Vec3 pos;
+    if(dot(hit.normal, direction) > 0.f) {
+        pos = hit.pos + hit.normal * 1e-4;
+    } else {
+        pos = hit.pos - hit.normal * 1e-4;
+    }
+    Ray ray(pos, direction, Vec2{0.0f, std::numeric_limits<float>::max()}, hit.depth - 1);
     auto radiance = scatter.attenuation * trace(ray).second;
     if(!hit.bsdf.is_discrete()) {
         radiance *= 1.0f / hit.bsdf.pdf(hit.out_dir, scatter.direction);
@@ -81,14 +86,32 @@ Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
     // incoming light (the first value returned by Pathtracer::trace()). Note that since we only
     // want emissive, we can trace a ray with depth = 0.
    
-    Vec3 direction = sample_area_lights(hit.pos);
-    Ray ray(hit.pos + hit.normal * 1e-4, direction, Vec2(0.0f, std::numeric_limits<float>::max()), 0.0f);
-    auto radiance_emissive = hit.bsdf.evaluate(hit.out_dir, hit.world_to_object.rotate(direction)) * trace(ray).first;
     // auto radiance_emissive = hit.bsdf.evaluate(hit.out_dir, hit.world_to_object.rotate(direction));
     if(!hit.bsdf.is_discrete()) {
+        Vec3 direction = sample_area_lights(hit.pos);
+        Vec3 pos;
+        if(dot(hit.normal, direction) > 0.f) {
+            pos = hit.pos + hit.normal * 1e-4;
+        } else {
+            pos = hit.pos - hit.normal * 1e-4;
+        }
+        Ray ray(pos, direction, Vec2(0.0f, std::numeric_limits<float>::max()), 0.0f);
+        auto radiance_emissive = hit.bsdf.evaluate(hit.out_dir, hit.world_to_object.rotate(direction)) * trace(ray).first;
         radiance_emissive *= 1.0f / area_lights_pdf(hit.pos, direction);
+        radiance += radiance_emissive;
+    } else {
+        auto scatter = hit.bsdf.scatter(hit.out_dir);
+        auto direction = hit.object_to_world.rotate(scatter.direction);
+        Vec3 pos;
+        if(dot(hit.normal, direction) > 0.f) {
+            pos = hit.pos + hit.normal * 1e-4;
+        } else {
+            pos = hit.pos - hit.normal * 1e-4;
+        }
+        Ray ray(pos, direction, Vec2{0.0f, std::numeric_limits<float>::max()}, 0);
+        radiance += scatter.attenuation * trace(ray).first;
     }
-    radiance += radiance_emissive;
+    
 #if TASK_4 == 1
     return radiance
 #endif
