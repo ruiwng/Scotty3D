@@ -46,6 +46,17 @@ Sphere::Image::Image(const HDR_Image& image) {
     const auto [_w, _h] = image.dimension();
     w = _w;
     h = _h;
+    total = 0.0f;
+    _pdf.reserve(w * h);
+    _cdf.reserve(w * h);
+    for(size_t i = 0; i < h; ++i) {
+        for(size_t j = 0; j < w; ++j) {
+            float luminance = image.at(j, i).luma();
+            _pdf.push_back(luminance);
+            total += luminance;
+            _cdf.push_back(total);
+        }
+    }
 }
 
 Vec3 Sphere::Image::sample() const {
@@ -54,8 +65,12 @@ Vec3 Sphere::Image::sample() const {
 
     // Use your importance sampling data structure to generate a sample direction.
     // Tip: std::upper_bound
-
-    return Vec3{};
+    size_t offset = std::upper_bound(_cdf.begin(), _cdf.end(), RNG::unit() * total) - _cdf.begin();
+    size_t row = offset / w;
+    float theta = PI_F - row * PI_F / h;
+    size_t column = offset - row * w;
+    float phi = column * PI_F * 2.0f / w;
+    return Vec3{std::sin(theta) * std::cos(phi), std::cos(theta), std::sin(theta) * std::sin(phi)};
 }
 
 float Sphere::Image::pdf(Vec3 dir) const {
@@ -63,8 +78,15 @@ float Sphere::Image::pdf(Vec3 dir) const {
     // TODO (PathTracer): Task 7
 
     // What is the PDF of this distribution at a particular direction?
-
-    return 0.0f;
+    float theta = PI_F - std::acos(dir.y);
+    float phi = std::atan2(dir.z, dir.x);
+    if(phi < 0.f) {
+        phi += PI_F * 2.f;
+    }
+    size_t y = theta * h / PI_F;
+    size_t x = phi * w / (PI_F * 2.0f);
+    size_t offset = y * w + x;
+    return _pdf[offset] * w * h / (2.0 * total * PI_F * PI_F * std::sin(theta));
 }
 
 Vec3 Point::sample() const {

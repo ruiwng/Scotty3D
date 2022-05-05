@@ -125,7 +125,7 @@ size_t BVH<Primitive>::build_recursively(size_t start, size_t size, std::vector<
     });
     int left_child = build_recursively(start, min_left_count, bounding_boxes);
     int right_child = build_recursively(start + min_left_count, size - min_left_count, bounding_boxes);
-    log("start %d, size %d, left_child %d, right_child %d", start, size, left_child, right_child);
+    // log("start %d, size %d, left_child %d, right_child %d\n", start, size, left_child, right_child);
     return new_node(box, start, size, left_child, right_child);
 }
 
